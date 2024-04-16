@@ -17,19 +17,39 @@ import random
 """
 
 def get_top_show_story():
+    """
+    data = []
+
     response = requests.get('https://hacker-news.firebaseio.com/v0/showstories.json?print=pretty')
-    top_story_id = response.json()[0]  # Get the first top show story ID
-    story_response = requests.get(f'https://hacker-news.firebaseio.com/v0/item/{top_story_id}.json')
-    story_response = story_response.json()
+    for i in response.json():
+        top_story_id = response.json()[i]  # Get the first top show story ID
+        story_response = requests.get(f'https://hacker-news.firebaseio.com/v0/item/{top_story_id}.json')
+        story_response = story_response.json()
+
+        for i in story_response:
+            data.append((i, story_response[i]))
+        data.pop(4)
+        data.pop(4)
+        data.pop(4)
+        data.pop(5)
+            print(data)
+        """
 
     data = []
-    for i in story_response:
-        data.append((i, story_response[i]))
-    data.pop(4)
-    data.pop(4)
-    data.pop(4)
-    data.pop(5)
-    print(data)
+    response = requests.get('https://hacker-news.firebaseio.com/v0/showstories.json?print=pretty')
+    for top_story_id in response.json():  # top_story_id is each item in the list
+        story_response = requests.get(f'https://hacker-news.firebaseio.com/v0/item/{top_story_id}.json')
+        story_response = story_response.json()
+
+        for key in story_response:
+            data.append((key, story_response[key]))
+        # Ensure the pops are within bounds
+        if len(data) > 8:  # Only pop if there are enough elements
+            data.pop(4)
+            data.pop(4)
+            data.pop(4)
+            data.pop(5)
+        print(data)
 
 get_top_show_story()
 
