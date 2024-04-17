@@ -13,6 +13,10 @@ import random
 
     next steps: do this looping over more objects not just one
 
+    they now each loop until the end of the response data and add all
+    attributes in order in tuples to a single list -> now we need to create a
+    new list per posting and not just have one entire list of tuples.
+
 =================================================================================
 """
 
@@ -44,28 +48,27 @@ def get_top_show_story():
         for key in story_response:
             data.append((key, story_response[key]))
         # Ensure the pops are within bounds
-        if len(data) > 8:  # Only pop if there are enough elements
-            data.pop(4)
-            data.pop(4)
-            data.pop(4)
-            data.pop(5)
+            if len(data) > 8:  # Only pop if there are enough elements
+                data.pop(4)
+                data.pop(4)
+                data.pop(4)
+                data.pop(5)
         print(data)
+    print("\n"+"\n"+"\n"+"\n"+"\n"+"\n"+"\n"+"\n")
 
 get_top_show_story()
 
 def get_job_posting():
-    response = requests.get('https://hacker-news.firebaseio.com/v0/jobstories.json')
-    job_posting_id = response.json()[0]
-    job_response =  requests.get(f'https://hacker-news.firebaseio.com/v0/item/{job_posting_id}.json')
-    job_response = job_response.json()
-
-# This creates a list of tuples where ( key, value) of the "job_response"
-# dictionary. then it pops the thrird item off of the list which is "score"
     data = []
-    for i in job_response:
-        data.append((i, job_response[i]))
-    data.pop(2)
-    print(data)
+    response = requests.get('https://hacker-news.firebaseio.com/v0/jobstories.json')
+    for job_posting_id in response.json():
+        job_response =  requests.get(f'https://hacker-news.firebaseio.com/v0/item/{job_posting_id}.json')
+        job_response = job_response.json()
+
+        for key in job_response:
+            data.append((key, job_response[key]))
+            #data.pop(2)
+        print(data)
 
 get_job_posting()
 
