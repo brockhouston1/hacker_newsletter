@@ -1,5 +1,44 @@
 import sqlite3
+from api_call import insert_data_into_db
 import click
+import os
+import threading
+import itertools
+import time
+import sys
+
+def spinner_animation(stop_event, message="Loading..."):
+    """ Spinner function that runs until stop_event is set """
+    for char in itertools.cycle('|/-\\'):
+        if stop_event.is_set():
+            # When stopping, overwrite the entire line with spaces and then return to the beginning
+            sys.stdout.write('\r' + ' ' * (len(message) + 2) + '\r')
+            sys.stdout.flush()
+            break
+        status = f"{message} {char}"
+        sys.stdout.write(status)
+        sys.stdout.flush()
+        # Move back the cursor to the start of the line
+        sys.stdout.write('\r')
+        time.sleep(0.1)
+
+def start_spinner():
+    """ Start spinner animation in a separate thread """
+    stop_event = threading.Event()
+    spinner_thread = threading.Thread(target=spinner_animation, args=(stop_event,))
+    spinner_thread.start()
+    return spinner_thread, stop_event
+
+def stop_spinner(spinner_thread, stop_event):
+    """ Stop the spinner animation """
+    if spinner_thread:
+        stop_event.set()
+        spinner_thread.join()
+
+@click.group()
+def cli():
+    """A CLI for searching Hacker News tables."""
+    pass
 
 DB_FILE = 'hacker_news.db'
 
@@ -9,14 +48,18 @@ def getdb(create=False):
             os.remove(DB_FILE)
     else:
         if not create:
-            print('no database found')
+            click.echo(click.style('No database found', fg='red'), err=True)
             sys.exit(1)
     con = sqlite3.connect(DB_FILE)
     con.execute('PRAGMA foreign_keys = ON')
     return con
 
-@click.command()
-def create():
+@cli.command()
+def refresh():
+    click.echo(click.style("\n╔═════════════════════════╗", fg='green'))
+    click.echo(click.style("║ Starting refresh process║", fg='green', bold=True))
+    click.echo(click.style("╚═════════════════════════╝\n", fg='green'))
+
     with getdb(create=True) as con:
         con.execute(
 '''CREATE TABLE NewsArticles (
@@ -50,18 +93,15 @@ def create():
     text TEXT
 )''')
 
-    print('database created')
-
-
-# Establish a group for the commands
-@click.group()
-def cli():
-    """A CLI for searching Hacker News tables."""
-    pass
+    click.echo(click.style('\nDatabase created. Inserting data into tables...', fg='yellow'))
+    spinner_thread, stop_event = start_spinner()
+    insert_data_into_db()
+    stop_spinner(spinner_thread, stop_event)
+    click.echo(click.style("\nRefresh complete. You're all set!", fg='green', bold=True))
 
 def search_table(table_name, keywords):
     """Generic function to search a specified table with provided keywords."""
-    conn = sqlite3.connect('hacker_news_data.db')
+    conn = sqlite3.connect('hacker_news.db')
     cursor = conn.cursor()
 
     keyword_clauses = ' AND '.join([f"title LIKE ?" for _ in keywords])
@@ -79,9 +119,9 @@ def search_table(table_name, keywords):
 
     if results:
         for result in results:
-            print(result, "\n")
+            click.echo(click.style(str(result), fg='cyan') + "\n")
     else:
-        print("No results found.")
+        click.echo(click.style("No results found.", fg='red'))
 
 @cli.command()
 @click.argument('keywords', nargs=-1, required=True)
@@ -106,95 +146,3 @@ def jobs(keywords):
 
 if __name__ == '__main__':
     cli()
-
-'''
-import sqlite3
-import click
-
-@click.command()
-@click.argument('table_name', type=click.Choice(['NewsArticles', 'Shows', 'JobPostings'], case_sensitive=False))
-@click.argument('keyword')
-def search_by_keyword(table_name, keyword):
-    print(f"Filtering  {table_name} by {keyword}...\n")
-    keyword = keyword + " "
-    """Searches for the keyword in the specified table within the title or description fields."""
-    # Connect to the SQLite database
-    conn = sqlite3.connect('hacker_news_data.db')
-    cursor = conn.cursor()
-
-    # Prepare the SQL query based on the table
-    if table_name in ['NewsArticles', 'Shows']:
-        query = f"""
-        SELECT * FROM {table_name}
-        WHERE title LIKE ?
-        """
-        params = ('%' + keyword + '%',)
-    elif table_name == 'JobPostings':
-        query = f"""
-        SELECT * FROM {table_name}
-        WHERE title LIKE ? OR text LIKE ?
-        """
-        params = ('%' + keyword + '%', '%' + keyword + '%')
-
-    # Use parameterized query to avoid SQL injection
-    cursor.execute(query, params)
-
-    # Fetch and return the results
-    results = cursor.fetchall()
-    conn.close()
-
-    if results:
-        for result in results:
-            print(result)
-    else:
-        print("No results found.")
-
-if __name__ == '__main__':
-    search_by_keyword()
-
-
-import sqlite3
-import click
-
-@click.command()
-@click.option('--table_name', type=click.Choice(['NewsArticles', 'Shows', 'JobPostings'], case_sensitive=False), required=True, help='Specify the table to search within.')
-@click.option('--keyword1', required=True, help='Required keyword to search for in title or text.')
-@click.option('--keyword2', default=None, help='Optional second keyword to search for in title or text.')
-@click.option('--keyword3', default=None, help='Optional third keyword to search for in title or text.')
-def search_by_keyword(table_name, keyword1, keyword2, keyword3):
-    print(f"Filtering {table_name} by {keyword1}, {keyword2}, {keyword3}...\n")
-
-    # Connect to the SQLite database
-    conn = sqlite3.connect('hacker_news_data.db')
-    cursor = conn.cursor()
-
-    # Prepare the SQL query based on the table
-    keywords = [keyword1, keyword2, keyword3]
-    keywords = [k for k in keywords if k]  # Remove None values
-    keyword_clauses = ' AND '.join([f"title LIKE ?" for _ in keywords])
-    params = tuple(f'%{k}%' for k in keywords)
-
-    if table_name in ['NewsArticles', 'Shows']:
-        query = f"SELECT * FROM {table_name} WHERE {keyword_clauses}"
-    elif table_name == 'JobPostings':
-        # Apply the keywords to both title and text
-        keyword_clauses += ' OR ' + ' OR '.join([f"text LIKE ?" for _ in keywords])
-        params *= 2  # Duplicate params as they apply to both title and text
-        query = f"SELECT * FROM {table_name} WHERE {keyword_clauses}"
-
-    # Use parameterized query to avoid SQL injection
-    cursor.execute(query, params)
-
-    # Fetch and return the results
-    results = cursor.fetchall()
-    conn.close()
-
-    if results:
-        for result in results:
-            print(result)
-    else:
-        print("No results found.")
-
-if __name__ == '__main__':
-    search_by_keyword()
-'''
