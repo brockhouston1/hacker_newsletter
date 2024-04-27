@@ -1,0 +1,5 @@
+- script that pulls data from hacker_news (api_call.py)
+- we need a file to create the database schema (schema.sql)
+- database file to store data (database.db)
+  
+

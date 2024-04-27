@@ -1,53 +1,90 @@
-
-import json
 import requests
-import random
-"""
-=================================================================================
+import sqlite3
 
-    Both get_top_show_story and get_job_posting return the desired values from
-    the appropriate hacker news api get requests. In each function the response
-    is turned into a python dictionary and looped over adding key value pairs
-    as tuples into a python list. After the list is created the fields we dont
-    desire to enter into our table are popped out of the list by index.
+def get_news_articles():
+    data_news = []
+    response = requests.get('https://hacker-news.firebaseio.com/v0/topstories.json')
+    news_article_ids = response.json()[:500]  # Limit to the top 10 for demonstration purposes
+    count = 0
+    for article_id in news_article_ids:
+        article_response = requests.get(f'https://hacker-news.firebaseio.com/v0/item/{article_id}.json')
+        article_data = article_response.json()
+        if article_data:
+            count += 1
+            # Ensure all keys exist, provide defaults if not
+            data_news.append((
+                article_data.get('id', 0),
+                article_data.get('title', 'N/A'),
+                article_data.get('url', 'N/A'),
+                article_data.get('by', 'N/A'),
+                article_data.get('score', 0),
+                article_data.get('time', 0),
+                article_data.get('descendants', 0)  # This is the comments count
+            ))
+    print(count)
+    return data_news
 
-    next steps: do this looping over more objects not just one
-
-    they now each loop until the end of the response data and add all
-    attributes in order in tuples to a single list -> now we need to create a
-    new list per posting and not just have one entire list of tuples.
-
-=================================================================================
-"""
-
-def get_top_show_story():
-    data_show = []
+def get_top_show_stories():
+    data_shows = []
     response = requests.get('https://hacker-news.firebaseio.com/v0/showstories.json')
-    print(response.json())
-    for top_story_id in response.json():  # top_story_id is each item in the list
+    show_story_ids = response.json()[:500]  # Limit to the top 10 for demonstration purposes
+    count = 0
+    for top_story_id in show_story_ids:
         story_response = requests.get(f'https://hacker-news.firebaseio.com/v0/item/{top_story_id}.json')
-        story_response = story_response.json()
-        print(story_response)
+        story_data = story_response.json()
+        if story_data:
+            count += 1
+            data_shows.append((
+                story_data.get('id', 0),
+                story_data.get('title', 'N/A'),
+                story_data.get('url', 'N/A'),
+                story_data.get('by', 'N/A'),
+                story_data.get('score', 0),
+                story_data.get('time', 0),
+                story_data.get('descendants', 0)
+            ))
+    print(count)
+    return data_shows
 
-        for key in story_response:
-            if( key == "by" or key == "descendants" or key == "title" or key == "id" or key == "url"):
-                data_show.append((key, story_response[key]))
-    print(data_show)
-    print("\n"+"\n"+"\n"+"\n"+"\n"+"\n"+"\n"+"\n")
-
-get_top_show_story()
-
-def get_job_posting():
+def get_job_postings():
     data_jobs = []
     response = requests.get('https://hacker-news.firebaseio.com/v0/jobstories.json')
-    for job_posting_id in response.json():
-        job_response =  requests.get(f'https://hacker-news.firebaseio.com/v0/item/{job_posting_id}.json')
-        job_response = job_response.json()
+    job_posting_ids = response.json()[:500]  # Limit to the top 10 for demonstration purposes
+    count = 0
+    for job_posting_id in job_posting_ids:
+        job_response = requests.get(f'https://hacker-news.firebaseio.com/v0/item/{job_posting_id}.json')
+        job_data = job_response.json()
+        if job_data:
+            count += 1
+            data_jobs.append((
+                job_data.get('id', 0),
+                job_data.get('title', 'N/A'),
+                job_data.get('url', 'N/A'),
+                job_data.get('by', 'N/A'),
+                job_data.get('time', 0),
+                job_data.get('text', 'N/A')
+            ))
+    print(count)
+    return data_jobs
 
-        for key in job_response:
-            if( key != "score" and  key != "type" ):
-                data_jobs.append((key, job_response[key]))
-    print(data_jobs)
+def insert_data_into_db():
+    conn = sqlite3.connect('hacker_news_data.db')
+    cursor = conn.cursor()
 
-get_job_posting()
+    # Insert news articles
+    news_data = get_news_articles()
+    cursor.executemany('INSERT INTO NewsArticles (id, title, url, author, points, time, comments_count) VALUES (?, ?, ?, ?, ?, ?, ?)', news_data)
 
+    # Insert show stories
+    show_data = get_top_show_stories()
+    cursor.executemany('INSERT INTO Shows (id, title, url, author, points, time, comments_count) VALUES (?, ?, ?, ?, ?, ?, ?)', show_data)
+
+    # Insert job postings
+    job_data = get_job_postings()
+    cursor.executemany('INSERT INTO JobPostings (id, title, url, author, time, text) VALUES (?, ?, ?, ?, ?, ?)', job_data)
+
+    conn.commit()
+    conn.close()
+
+if __name__ == '__main__':
+    insert_data_into_db()
