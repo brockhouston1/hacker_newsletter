@@ -119,7 +119,7 @@ def search_table(table_name, keywords):
 
     if table_name == 'JobPostings':
         # Apply the keywords to both title and text
-        keyword_clauses = f'({keyword_clauses}) AND ' + 'AND '.join([f"text LIKE ?" for _ in keywords])
+        keyword_clauses = f'({keyword_clauses}) AND ' + 'AND '.join([f"title LIKE ?" for _ in keywords])
         params *= 2  # Duplicate params for both title and text
 
     query = f"SELECT * FROM {table_name} WHERE {keyword_clauses}"
