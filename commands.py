@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sqlite3
 from api_call import insert_data_into_db
 import click
@@ -56,9 +58,10 @@ def getdb(create=False):
 
 @cli.command()
 def refresh():
-    click.echo(click.style("\n╔═════════════════════════╗", fg='green'))
+    """Refresh the database and get new data from hackerNews"""
+    click.echo(click.style("\n╔═════════════════════════╗", fg='green', bold=True))
     click.echo(click.style("║ Starting refresh process║", fg='green', bold=True))
-    click.echo(click.style("╚═════════════════════════╝\n", fg='green'))
+    click.echo(click.style("╚═════════════════════════╝\n", fg='green', bold=True))
 
     with getdb(create=True) as con:
         con.execute(
@@ -93,11 +96,18 @@ def refresh():
     text TEXT
 )''')
 
-    click.echo(click.style('\nDatabase created. Inserting data into tables...', fg='yellow'))
+    click.echo(click.style('\nDatabase created. Inserting data into tables...', fg='green'))
+    print('+--------------+-----------------------------------+')
+    print('|  table_name  |               total               |')
+    print('+--------------+-----------------------------------+')
     spinner_thread, stop_event = start_spinner()
     insert_data_into_db()
+    print('+--------------+-----------------------------------+')
     stop_spinner(spinner_thread, stop_event)
-    click.echo(click.style("\nRefresh complete. You're all set!", fg='green', bold=True))
+    click.echo(click.style("\n╔══════════════════════════════════╗", fg='green', bold=True))
+    click.echo(click.style("║ Refresh complete. You're all set!║", fg='green', bold=True))
+    click.echo(click.style("╚══════════════════════════════════╝\n", fg='green', bold=True))
+
 
 def search_table(table_name, keywords):
     """Generic function to search a specified table with provided keywords."""
@@ -119,6 +129,7 @@ def search_table(table_name, keywords):
 
     if results:
         for result in results:
+            print('+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+')
             click.echo(click.style(str(result), fg='cyan') + "\n")
     else:
         click.echo(click.style("No results found.", fg='red'))
@@ -126,23 +137,26 @@ def search_table(table_name, keywords):
 @cli.command()
 @click.argument('keywords', nargs=-1, required=True)
 def news(keywords):
-    """Search in the NewsArticles table."""
+    """Search by key in the NewsArticles table."""
     if keywords:
-        search_table('NewsArticles', keywords)
+        key = [word + ' ' for word in keywords]
+        search_table('NewsArticles', key)
 
 @cli.command()
 @click.argument('keywords', nargs=-1, required=True)
 def shows(keywords):
-    """Search in the Shows table."""
+    """Search by key in the Shows table."""
     if keywords:
-        search_table('Shows', keywords)
+        key = [word + ' ' for word in keywords]
+        search_table('Shows', key)
 
 @cli.command()
 @click.argument('keywords', nargs=-1, required=True)
 def jobs(keywords):
-    """Search in the JobPostings table."""
+    """Search by key in the JobPostings table."""
     if keywords:
-        search_table('JobPostings', keywords)
+        key = [word + ' ' for word in keywords]
+        search_table('JobPostings', key)
 
 if __name__ == '__main__':
     cli()
